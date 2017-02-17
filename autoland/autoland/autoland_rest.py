@@ -147,6 +147,7 @@ def autoland_status(request_id):
 
 @app.route('/')
 def hi_there():
+    # TODO add list of recent requests
     result = 'Welcome to Autoland'
 
     headers = [

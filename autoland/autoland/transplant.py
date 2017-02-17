@@ -12,6 +12,9 @@ def get_repo_path(tree):
     return config.get('repos').get(tree,
                                    os.path.join(os.path.sep, 'repos', tree))
 
+def protected_repo(reponame):
+    return reponame in config.get('protected_repos')
+
 
 def formulate_hg_error(cmd, output):
     # we want to strip out any sensitive --config options
@@ -33,9 +36,13 @@ def transplant(logger, tree, destination, rev, trysyntax=None,
     assert isinstance(rev, str)
     if push_bookmark:
         assert isinstance(push_bookmark, str)
-
     path = get_repo_path(tree)
     configs = ['ui.interactive=False']
+    if protected_repo(destination):
+        pass
+        # TODO: establish that this rev passed some tests, or abort
+        # How does one look up Treeherder results here?
+
     with hglib.open(path, encoding='utf-8', configs=configs) as client:
         return _transplant(logger, client, tree, destination, rev,
                            trysyntax=trysyntax, push_bookmark=push_bookmark,

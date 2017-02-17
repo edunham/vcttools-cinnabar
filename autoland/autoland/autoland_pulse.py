@@ -25,6 +25,8 @@ def read_credentials():
 
 
 def handle_message(data, message):
+    # TODO: This should be where we trigger a build or merge depending on
+    # message contents
     message.ack()
 
 
