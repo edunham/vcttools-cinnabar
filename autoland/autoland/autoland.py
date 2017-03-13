@@ -49,7 +49,8 @@ INTERRUPTED_BY_AUTOLAND_RE = re.compile(r'Interrupted by Autoland \((.+?)\)')
 TEST_TIMEOUT = 3600 * 10
 
 # Cute debugging messages came in with Homu
-PORTAL_TURRET_DIALOG = ["Target acquired", "Activated", "Who's there?", "There you are"]
+PORTAL_TURRET_DIALOG = ["Target acquired", "Activated", "Who's there?",
+                        "There you are"]
 PORTAL_TURRET_IMAGE = "https://cloud.githubusercontent.com/assets/1617736/22222924/c07b2a1c-e16d-11e6-91b3-ac659550585c.png"
 
 # HG max attempts to transplant before bailing
@@ -311,10 +312,9 @@ def db_query(db, *args):
 def buildbot_sess(repo_cfg):
     sess = requests.Session()
 
-    sess.post(repo_cfg['buildbot']['url'] + '/login', allow_redirects=False, data={
-        'username': repo_cfg['buildbot']['username'],
-        'passwd': repo_cfg['buildbot']['password'],
-    })
+    sess.post(repo_cfg['buildbot']['url'] + '/login', allow_redirects=False,
+              data={'username': repo_cfg['buildbot']['username'],
+              'passwd': repo_cfg['buildbot']['password']})
 
     yield sess
 
@@ -331,7 +331,8 @@ class Repository:
         self.gh = gh
         self.repo_label = repo_label
         self.db = dbconn
-        db_query(dbconn, 'SELECT treeclosed FROM repos WHERE repo = ?', [repo_label])
+        db_query(dbconn, 'SELECT treeclosed FROM repos WHERE repo = ?',
+                 [repo_label])
         # FIXME this may be incorrect use of database
         row = dbconn.fetchone()
         if row:
@@ -341,9 +342,12 @@ class Repository:
 
     def update_treeclosed(self, value):
         self.treeclosed = value
-        db_query(self.db, 'DELETE FROM repos where repo = ?', [self.repo_label])
+        db_query(self.db, 'DELETE FROM repos where repo = ?',
+                 [self.repo_label])
         if value > 0:
-            db_query(self.db, 'INSERT INTO repos (repo, treeclosed) VALUES (?, ?)', [self.repo_label, value])
+            db_query(self.db,
+                     'INSERT INTO repos (repo, treeclosed) VALUES (?, ?)',
+                     [self.repo_label, value])
 
     def __lt__(self, other):
         return self.gh < other.gh
@@ -360,7 +364,8 @@ class PullReqState:
     assignee = ''
     delegate = ''
 
-    def __init__(self, num, head_sha, status, db, repo_label, mergeable_que, gh, owner, name, repos):
+    def __init__(self, num, head_sha, status, db, repo_label, mergeable_que,
+                 gh, owner, name, repos):
         self.head_advanced('', use_db=False)
 
         self.num = num
@@ -390,7 +395,8 @@ class PullReqState:
             self.init_build_res([])
 
     def __repr__(self):
-        return 'PullReqState:{}/{}#{}(approved_by={}, priority={}, status={})'.format(
+        fmt = 'PullReqState:{}/{}#{}(approved_by={}, priority={}, status={})'
+        return fmt.format(
             self.owner,
             self.name,
             self.num,
@@ -423,28 +429,33 @@ class PullReqState:
 
     def set_status(self, status):
         self.status = status
-
-        db_query(self.db, 'UPDATE pull SET status = ? WHERE repo = ? AND num = ?', [self.status, self.repo_label, self.num])
+        q = 'UPDATE pull SET status = ? WHERE repo = ? AND num = ?'
+        db_query(self.db, q, [self.status, self.repo_label, self.num])
 
         # FIXME: self.try_ should also be saved in the database
         if not self.try_:
-            db_query(self.db, 'UPDATE pull SET merge_sha = ? WHERE repo = ? AND num = ?', [self.merge_sha, self.repo_label, self.num])
+            q = 'UPDATE pull SET merge_sha = ? WHERE repo = ? AND num = ?'
+            db_query(self.db, q, [self.merge_sha, self.repo_label, self.num])
 
     def get_status(self):
-        return 'approved' if self.status == '' and self.approved_by and self.mergeable is not False else self.status
+        if (self.status == '' and self.approved_by and
+                                  self.mergeable is not False):
+            return 'approved'
+        else:
+            return self.status
 
     def set_mergeable(self, mergeable, *, cause=None, que=True):
         if mergeable is not None:
             self.mergeable = mergeable
-
-            db_query(self.db, 'INSERT OR REPLACE INTO mergeable (repo, num, mergeable) VALUES (?, ?, ?)', [self.repo_label, self.num, self.mergeable])
+            q = 'INSERT OR REPLACE INTO mergeable (repo, num, mergeable) VALUES (?, ?, ?)'
+            db_query(self.db, q, [self.repo_label, self.num, self.mergeable])
         else:
             if que:
                 self.mergeable_que.put([self, cause])
             else:
                 self.mergeable = None
-
-            db_query(self.db, 'DELETE FROM mergeable WHERE repo = ? AND num = ?', [self.repo_label, self.num])
+            q = 'DELETE FROM mergeable WHERE repo = ? AND num = ?'
+            db_query(self.db, q, [self.repo_label, self.num])
 
     def init_build_res(self, builders, *, use_db=True):
         self.build_res = {x: {
@@ -453,7 +464,8 @@ class PullReqState:
         } for x in builders}
 
         if use_db:
-            db_query(self.db, 'DELETE FROM build_res WHERE repo = ? AND num = ?', [self.repo_label, self.num])
+            q = 'DELETE FROM build_res WHERE repo = ? AND num = ?'
+            db_query(self.db, q, [self.repo_label, self.num])
 
     def set_build_res(self, builder, res, url):
         if builder not in self.build_res:
@@ -480,7 +492,8 @@ class PullReqState:
     def get_repo(self):
         repo = self.repos[self.repo_label].gh
         if not repo:
-            self.repos[self.repo_label].gh = repo = self.gh.repository(self.owner, self.name)
+            repo = self.gh.repository(self.owner, self.name)
+            self.repos[self.repo_label].gh = repo
 
             assert repo.owner.login == self.owner
             assert repo.name == self.name
@@ -512,13 +525,15 @@ class PullReqState:
         self.body = issue.body
 
     def fake_merge(self, repo_cfg):
-        if not repo_cfg.get('linear', False) or repo_cfg.get('autosquash', False):
+        if not repo_cfg.get('linear', False) or repo_cfg.get('autosquash',
+                                                             False):
             return
 
         issue = self.get_issue()
         title = issue.title
-        # We tell github to close the PR via the commit message, but it doesn't know that
-        # constitutes a merge.  Edit the title so that it's clearer.
+        # We tell github to close the PR via the commit message, but it
+        # doesn't know that constitutes a merge.  Edit the title so that it's
+        # clearer.
         merged_prefix = '[merged] '
         if not title.startswith(merged_prefix):
             title = merged_prefix + title
@@ -540,10 +555,10 @@ class AuthState(IntEnum):
 
 
 def verify_auth(username, repo_cfg, state, auth, realtime, my_username):
-    # In some cases (e.g. non-fully-qualified r+) we recursively talk to ourself
-    # via a hidden markdown comment in the message. This is so that
-    # when re-synchronizing after shutdown we can parse these comments
-    # and still know the SHA for the approval.
+    # In some cases (e.g. non-fully-qualified r+) we recursively talk to
+    # ourself via a hidden markdown comment in the message. This is so that
+    # when re-synchronizing after shutdown we can parse these comments and
+    # still know the SHA for the approval.
     #
     # So comments from self should always be allowed
     if username == my_username:
@@ -579,17 +594,20 @@ def verify_auth(username, repo_cfg, state, auth, realtime, my_username):
         return False
 
 
-def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, realtime=False, sha=''):
+def parse_commands(body, username, repo_cfg, state, my_username, db, states,
+                   *, realtime=False, sha=''):
 
     state_changed = False
 
-    words = list(chain.from_iterable(re.findall(r'\S+', x) for x in body.splitlines() if '@' + my_username in x))
+    words = (list(chain.from_iterable(re.findall(r'\S+', x)
+             for x in body.splitlines() if '@' + my_username in x)))
     if words[1:] == ["are", "you", "still", "there?"] and realtime:
         state.add_comment(":cake: {}\n\n![]({})".format(random.choice(PORTAL_TURRET_DIALOG), PORTAL_TURRET_IMAGE))
     for i, word in reversed(list(enumerate(words))):
         found = True
         if word == 'r+' or word.startswith('r='):
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
 
             if not sha and i + 1 < len(words):
@@ -611,9 +629,10 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
                     state.add_comment(':clipboard: Looks like this PR is still in progress, ignoring approval')
                 continue
 
-            # Sometimes, GitHub sends the head SHA of a PR as 0000000 through the webhook. This is
-            # called a "null commit", and seems to happen when GitHub internally encounters a race
-            # condition. Last time, it happened when squashing commits in a PR. In this case, we
+            # Sometimes, GitHub sends the head SHA of a PR as 0000000 through
+            # the webhook. This is called a "null commit", and seems to happen
+            # when GitHub internally encounters a race condition. Last time,
+            # it happened when squashing commits in a PR. In this case, we
             # just try to retrieve the head SHA manually.
             if all(x == '0' for x in state.head_sha):
                 if realtime:
@@ -665,7 +684,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
                         state.add_comment(':evergreen_tree: The tree is currently closed for pull requests below priority {}, this pull request will be tested once the tree is reopened'.format(treeclosed))
 
         elif word == 'r-':
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
 
             state.approved_by = ''
@@ -673,7 +693,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
             state.save()
 
         elif word.startswith('p='):
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             try:
                 state.priority = int(word[len('p='):])
@@ -683,7 +704,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
             state.save()
 
         elif word.startswith('delegate='):
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
 
             state.delegate = word[len('delegate='):]
@@ -694,13 +716,15 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
 
         elif word == 'delegate-':
             # TODO: why is this a TRY?
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             state.delegate = ''
             state.save()
 
         elif word == 'delegate+':
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
 
             state.delegate = state.get_repo().pull_request(state.num).user.login
@@ -710,12 +734,14 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
                 state.add_comment(':v: @{} can now approve this pull request'.format(state.delegate))
 
         elif word == 'retry' and realtime:
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             state.set_status('')
 
         elif word in ['try', 'try-'] and realtime:
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             state.try_ = word == 'try'
 
@@ -725,14 +751,16 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
             state.save()
 
         elif word in ['rollup', 'rollup-']:
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             state.rollup = word == 'rollup'
 
             state.save()
 
         elif word == 'force' and realtime:
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             if 'buildbot' in repo_cfg:
                 with buildbot_sess(repo_cfg) as sess:
@@ -756,7 +784,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
                 state.add_comment(':bomb: Buildbot returned an error: `{}`'.format(err))
 
         elif word == 'clean' and realtime:
-            if not verify_auth(username, repo_cfg, state, AuthState.TRY, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.TRY,
+                               realtime, my_username):
                 continue
             state.merge_sha = ''
             state.init_build_res([])
@@ -765,7 +794,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
         elif (word == 'hello?' or word == 'ping') and realtime:
             state.add_comment(":sleepy: I'm awake I'm awake")
         elif word.startswith('treeclosed='):
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
             try:
                 treeclosed = int(word[len('treeclosed='):])
@@ -774,7 +804,8 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
                 pass
             state.save()
         elif word == 'treeclosed-':
-            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER, realtime, my_username):
+            if not verify_auth(username, repo_cfg, state, AuthState.REVIEWER,
+                               realtime, my_username):
                 continue
             state.change_treeclosed(-1)
             state.save()
@@ -783,7 +814,6 @@ def parse_commands(body, username, repo_cfg, state, my_username, db, states, *, 
 
         if found:
             state_changed = True
-
             words[i] = ''
 
     return state_changed
@@ -797,7 +827,9 @@ def git_push(git_cmd, branch, state):
         utils.logged_call(git_cmd('push', '-f', 'origin', 'homu-tmp'))
 
         def inner():
-            utils.github_create_status(state.get_repo(), merge_sha, 'success', '', 'Branch protection bypassed', context='homu')
+            utils.github_create_status(state.get_repo(), merge_sha, 'success',
+                                       '', 'Branch protection bypassed',
+                                       context='homu')
 
         def fail(err):
             state.add_comment(':boom: Unable to create a status for {} ({})'.format(merge_sha, err))
@@ -829,7 +861,8 @@ def init_local_git_cmds(repo_cfg, git_cfg):
 def branch_equal_to_merge(git_cmd, state, branch):
     utils.logged_call(git_cmd('fetch', 'origin',
                               'pull/{}/merge'.format(state.num)))
-    return utils.silent_call(git_cmd('diff', '--quiet', 'FETCH_HEAD', branch)) == 0
+    return utils.silent_call(git_cmd('diff', '--quiet', 'FETCH_HEAD',
+                                     branch)) == 0
 
 
 def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
@@ -857,7 +890,8 @@ def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
         utils.silent_call(git_cmd('merge', '--abort'))
 
         if repo_cfg.get('linear', False):
-            utils.logged_call(git_cmd('checkout', '-B', branch, state.head_sha))
+            utils.logged_call(git_cmd('checkout', '-B', branch,
+                              state.head_sha))
             try:
                 args = [base_sha]
                 if repo_cfg.get('autosquash', False):
@@ -885,7 +919,8 @@ def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
 
                 return git_push(git_cmd, branch, state)
         else:
-            utils.logged_call(git_cmd('checkout', '-B', 'homu-tmp', state.head_sha))
+            utils.logged_call(git_cmd('checkout', '-B', 'homu-tmp',
+                              state.head_sha))
 
             ok = True
             if repo_cfg.get('autosquash', False):
@@ -917,11 +952,11 @@ def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
                     return git_push(git_cmd, branch, state)
     else:
         if repo_cfg.get('linear', False) or repo_cfg.get('autosquash', False):
-            raise RuntimeError('local_git must be turned on to use this feature')
+            raise RuntimeError('local_git must be enabled to use this feature')
 
-        # if we're merging using the GitHub API, we have no way to predict with
-        # certainty what the final result will be so make sure the caller isn't
-        # asking us to keep any promises (see also discussions at
+        # if we're merging using the GitHub API, we have no way to predict
+        # with certainty what the final result will be so make sure the caller
+        # isn't asking us to keep any promises (see also discussions at
         # https://github.com/servo/homu/pull/57)
         assert ensure_merge_equal is False
 
@@ -934,7 +969,8 @@ def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
             )
 
         try:
-            merge_commit = state.get_repo().merge(branch, state.head_sha, merge_msg)
+            merge_commit = state.get_repo().merge(branch, state.head_sha,
+                                                  merge_msg)
         except github3.models.GitHubError as e:
             if e.code != 409:
                 raise
@@ -942,7 +978,8 @@ def create_merge(state, repo_cfg, branch, git_cfg, ensure_merge_equal=False):
             return merge_commit.sha if merge_commit else ''
 
     state.set_status('error')
-    utils.github_create_status(state.get_repo(), state.head_sha, 'error', '', desc, context='homu')
+    utils.github_create_status(state.get_repo(), state.head_sha, 'error',
+                               '', desc, context='homu')
 
     state.add_comment(':lock: ' + desc)
 
@@ -972,13 +1009,15 @@ def get_github_merge_sha(state, repo_cfg, git_cfg):
     utils.logged_call(git_cmd('fetch', 'origin',
                               'pull/{}/merge'.format(state.num)))
 
-    return subprocess.check_output(git_cmd('rev-parse', 'FETCH_HEAD')).decode('ascii').strip()
+    return subprocess.check_output(git_cmd('rev-parse',
+                                           'FETCH_HEAD')).decode('ascii').strip()
 
 
 def do_exemption_merge(state, repo_cfg, git_cfg, url, check_merge, reason):
 
     try:
-        merge_sha = create_merge(state, repo_cfg, state.base_ref, git_cfg, check_merge)
+        merge_sha = create_merge(state, repo_cfg, state.base_ref, git_cfg,
+                                 check_merge)
     except subprocess.CalledProcessError:
         print('* Unable to create a merge commit for the exempted PR: {}'.format(state))
         traceback.print_exc()
@@ -1038,12 +1077,17 @@ def start_build(state, repo_cfgs, buildbot_slots, logger, db, git_cfg):
 
     logger.info('Starting build of {}/{}#{} on {}: {}'.format(state.owner,
                                                               state.name,
-                                                              state.num, branch, state.merge_sha))
+                                                              state.num,
+                                                              branch,
+                                                              state.merge_sha))
 
     state.test_started = time.time()
     state.set_status('pending')
-    desc = '{} commit {} with merge {}...'.format('Trying' if state.try_ else 'Testing', state.head_sha, state.merge_sha)
-    utils.github_create_status(state.get_repo(), state.head_sha, 'pending', '', desc, context='homu')
+    desc = '{} commit {} with merge {}...'.format('Trying' if state.try_ else 'Testing',
+                                                  state.head_sha,
+                                                  state.merge_sha)
+    utils.github_create_status(state.get_repo(), state.head_sha, 'pending',
+                               '', desc, context='homu')
 
     state.add_comment(':hourglass: ' + desc)
 
@@ -1076,7 +1120,8 @@ def start_rebuild(state, repo_cfgs):
 
     if base_sha not in parent_shas:
         return False
-    utils.github_set_ref(state.get_repo(), 'tags/homu-tmp', state.merge_sha, force=True)
+    utils.github_set_ref(state.get_repo(), 'tags/homu-tmp', state.merge_sha,
+                         force=True)
 
     builders.sort()
     succ_builders.sort()
@@ -1122,7 +1167,8 @@ def start_build_or_rebuild(state, repo_cfgs, *args):
     return start_build(state, repo_cfgs, *args)
 
 
-def process_queue(states, repos, repo_cfgs, logger, buildbot_slots, db, git_cfg):
+def process_queue(states, repos, repo_cfgs, logger, buildbot_slots, db,
+                  git_cfg):
     for repo_label, repo in repos.items():
         repo_states = sorted(states[repo_label].values())
 
@@ -1136,7 +1182,8 @@ def process_queue(states, repos, repo_cfgs, logger, buildbot_slots, db, git_cfg)
                 break
 
             elif state.status == '' and state.approved_by:
-                if start_build_or_rebuild(state, repo_cfgs, buildbot_slots, logger, db, git_cfg):
+                if start_build_or_rebuild(state, repo_cfgs, buildbot_slots,
+                                          logger, db, git_cfg):
                     return
 
             elif state.status == 'success' and state.try_ and state.approved_by:
@@ -1144,12 +1191,14 @@ def process_queue(states, repos, repo_cfgs, logger, buildbot_slots, db, git_cfg)
 
                 state.save()
 
-                if start_build(state, repo_cfgs, buildbot_slots, logger, db, git_cfg):
+                if start_build(state, repo_cfgs, buildbot_slots, logger, db,
+                               git_cfg):
                     return
 
         for state in repo_states:
             if state.status == '' and state.try_:
-                if start_build(state, repo_cfgs, buildbot_slots, logger, db, git_cfg):
+                if start_build(state, repo_cfgs, buildbot_slots, logger, db,
+                               git_cfg):
                     return
 
 
@@ -1199,7 +1248,8 @@ def check_timeout(states, queue_handler):
         try:
             for repo_label, repo_states in states.items():
                 for num, state in repo_states.items():
-                    if state.status == 'pending' and time.time() - state.test_started >= TEST_TIMEOUT:
+                    if (state.status == 'pending' and
+                             time.time() - state.test_started >= TEST_TIMEOUT):
                         print('* Test timed out: {}'.format(state))
 
                         state.merge_sha = ''
@@ -1207,7 +1257,10 @@ def check_timeout(states, queue_handler):
                         state.set_status('failure')
 
                         desc = 'Test timed out'
-                        utils.github_create_status(state.get_repo(), state.head_sha, 'failure', '', desc, context='homu')
+                        utils.github_create_status(state.get_repo(),
+                                                   state.head_sha,
+                                                   'failure', '', desc,
+                                                   context='homu')
                         state.add_comment(':boom: {}'.format(desc))
 
                         queue_handler()
@@ -1220,7 +1273,8 @@ def check_timeout(states, queue_handler):
             time.sleep(3600)
 
 
-def synchronize(repo_label, repo_cfg, logger, gh, states, repos, db, mergeable_que, my_username, repo_labels):
+def synchronize(repo_label, repo_cfg, logger, gh, states, repos, db,
+                mergeable_que, my_username, repo_labels):
     # FIXME Synchronize updates DB to match state of GitHub. There probably
     # needs to be a user-facing way to sync on demand.
     logger.info('Synchronizing {}...'.format(repo_label))
@@ -1242,7 +1296,8 @@ def synchronize(repo_label, repo_cfg, logger, gh, states, repos, db, mergeable_q
     repos[repo_label] = Repository(repo, repo_label, db)
 
     for pull in repo.iter_pulls(state='open'):
-        db_query(db, 'SELECT status FROM pull WHERE repo = ? AND num = ?', [repo_label, pull.number])
+        db_query(db, 'SELECT status FROM pull WHERE repo = ? AND num = ?',
+                 [repo_label, pull.number])
         row = db.fetchone()
         if row:
             status = row[0]
@@ -1253,7 +1308,9 @@ def synchronize(repo_label, repo_cfg, logger, gh, states, repos, db, mergeable_q
                     status = info.state
                     break
 
-        state = PullReqState(pull.number, pull.head.sha, status, db, repo_label, mergeable_que, gh, repo_cfg['owner'], repo_cfg['name'], repos)
+        state = PullReqState(pull.number, pull.head.sha, status, db,
+                             repo_label, mergeable_que, gh, repo_cfg['owner'],
+                             repo_cfg['name'], repos)
         state.title = pull.title
         state.body = pull.body
         state.head_ref = pull.head.repo[0] + ':' + pull.head.ref
@@ -1352,7 +1409,9 @@ def main():
 
         db_query(dbconn, 'SELECT num, head_sha, status, title, body, head_ref, base_ref, assignee, approved_by, priority, try_, rollup, delegate, merge_sha FROM pull WHERE repo = ?', [repo_label])
         for num, head_sha, status, title, body, head_ref, base_ref, assignee, approved_by, priority, try_, rollup, delegate, merge_sha in dbconn.fetchall():
-            state = PullReqState(num, head_sha, status, dbconn, repo_label, mergeable_que, gh, repo_cfg['owner'], repo_cfg['name'], repos)
+            state = PullReqState(num, head_sha, status, dbconn, repo_label,
+                                 mergeable_que, gh, repo_cfg['owner'],
+                                 repo_cfg['name'], repos)
             state.title = title
             state.body = body
             state.head_ref = head_ref
@@ -1390,10 +1449,12 @@ def main():
     os.environ['GIT_EDITOR'] = 'cat'
 
     # Update state of database to match state of GitHub
-    synchronize(repo_label, repo_cfg, logger, gh, states, repos, dbconn, mergeable_que, my_username, repo_labels)
+    synchronize(repo_label, repo_cfg, logger, gh, states, repos, dbconn,
+                mergeable_que, my_username, repo_labels)
 
     def queue_handler():
-        return process_queue(states, repos, repo_cfgs, logger, buildbot_slots, dbconn, git_cfg)
+        return process_queue(states, repos, repo_cfgs, logger, buildbot_slots,
+                             dbconn, git_cfg)
 
     while True:
         try:
@@ -1411,7 +1472,8 @@ def main():
                     next_mozreview_update += MOZREVIEW_RETRY_DELAY
             fetch_mergeability(mergeable_que)
             check_timeout(states, queue_handler)
-            process_queue(states, repos, repo_cfgs, logger, buildbot_slots, dbconn, git_cfg)
+            process_queue(states, repos, repo_cfgs, logger, buildbot_slots,
+                          dbconn, git_cfg)
 
             time.sleep(0.1)
         except KeyboardInterrupt:

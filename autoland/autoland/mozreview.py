@@ -19,6 +19,7 @@ API_KEY_LOGIN_PATH = ('/api/extensions/mozreview.extension.MozReviewExtension/'
 #       "passwd": "password",
 #   }
 
+
 class BugzillaAuthException(Exception):
     pass
 

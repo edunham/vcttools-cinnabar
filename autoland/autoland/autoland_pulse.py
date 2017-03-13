@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import amqp
-import datetime
-import json
 import logging
 import platform
 import psycopg2
