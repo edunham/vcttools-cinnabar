@@ -3,6 +3,11 @@ import os
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                            'config.json')
+
+# FIXME Homu autoland changes assume that config.json contains at least what
+# config.sample.json does. It would also be nice to update the sample with the
+# fields that prod's config contains.
+
 CONFIG = None
 LAST_MTIME = None
 

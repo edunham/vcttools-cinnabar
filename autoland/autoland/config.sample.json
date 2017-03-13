@@ -1,0 +1,69 @@
+{
+  "github": {
+    "access_token": "TODO put token",
+    "app_client_id": "TODO put client ID",
+    "app_client_secret": "TODO put secret"
+  },
+  "ghrepo": {
+    "servo": {
+      "owner": "servo",
+      "name": "servo",
+      "reviewers": [
+        "aneeshusa",
+        "asajeffrey",
+        "bholley",
+        "bzbarsky",
+        "cbrewster",
+        "edunham",
+        "emilio",
+        "frewsxcv",
+        "glennw",
+        "heycam",
+        "jdm",
+        "jgraham",
+        "KiChjang",
+        "kmcallister",
+        "kvark",
+        "larsbergstrom",
+        "Manishearth",
+        "mbrubeck",
+        "metajack",
+        "michaelwu",
+        "mrobinson",
+        "Ms2ger",
+        "notriddle",
+        "nox",
+        "pcwalton",
+        "saneyuki",
+        "SimonSapin",
+        "shinglyu",
+        "upsuper",
+        "Wafflespeanut",
+        "zmike",
+        "BorisChiou"
+      ],
+      "try_users": [
+        "askalski",
+        "avadacatavra",
+        "canaltinova",
+        "chandler",
+        "cynicaldevil",
+        "danlrobertson",
+        "dzbarsky",
+        "jryans",
+        "gsnedders",
+        "GuillaumeGomez",
+        "izgzhen",
+        "magni-",
+        "paulrouget",
+        "stshine",
+        "tschneidereit",
+        "vvuk",
+        "Yoric"
+      ],
+      "github": {
+        "secret": "TODO put secret"
+      }
+    }
+  }
+}
